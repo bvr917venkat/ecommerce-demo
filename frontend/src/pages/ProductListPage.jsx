@@ -22,7 +22,7 @@ export default function ProductListPage() {
       const matchCat = activeCategory === ALL || p.category === activeCategory
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                           p.category.toLowerCase().includes(search.toLowerCase())
-      return matchCat && matchSearch
+      return matchCat || matchSearch
     })
   }, [products, activeCategory, search])
 
