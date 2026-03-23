@@ -1,6 +1,9 @@
 package com.demo.ecommerce.controller;
 
 import com.demo.ecommerce.model.Product;
+import io.sentry.Sentry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Comparator;
@@ -12,6 +15,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/products")
 @CrossOrigin(origins = "http://localhost:5173")
 public class ProductController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductController.class);
 
     public static final Map<Long, Product> PRODUCT_CATALOG = Map.of(
         1L, new Product(1L, "Wireless Headphones", "Electronics", 79.99,
@@ -42,6 +47,8 @@ public class ProductController {
 
     @GetMapping
     public List<Product> getAllProducts() {
+        log.info("Fetching all products: count={}", PRODUCT_CATALOG.size());
+        Sentry.logger().info("Fetching all products: count=%d", PRODUCT_CATALOG.size());
         return PRODUCT_CATALOG.values().stream()
             .sorted(Comparator.comparing(Product::getId))
             .collect(Collectors.toList());
@@ -49,6 +56,14 @@ public class ProductController {
 
     @GetMapping("/{id}")
     public Product getProduct(@PathVariable Long id) {
-        return PRODUCT_CATALOG.get(id);
+        Product product = PRODUCT_CATALOG.get(id);
+        if (product == null) {
+            log.warn("Product not found: id={}", id);
+            Sentry.logger().warn("Product not found: id=%d", id);
+        } else {
+            log.info("Product fetched: id={}, name={}", id, product.getName());
+            Sentry.logger().info("Product fetched: id=%d, name=%s", id, product.getName());
+        }
+        return product;
     }
 }

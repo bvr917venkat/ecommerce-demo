@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import * as Sentry from '@sentry/react'
 
 const CartContext = createContext()
 
@@ -8,13 +9,20 @@ export function CartProvider({ children }) {
   const [productsLoaded, setProductsLoaded] = useState(false)
 
   useEffect(() => {
+    Sentry.logger.info('Fetching product catalog from API')
+    Sentry.addBreadcrumb({ category: 'api', message: 'Fetching product catalog', level: 'info' })
     fetch('http://localhost:8080/api/products')
       .then(r => r.json())
       .then(data => {
         setProducts(data)
         setProductsLoaded(true)
+        Sentry.logger.info(`Product catalog loaded: ${data.length} products`)
+        Sentry.addBreadcrumb({ category: 'api', message: `Product catalog loaded: ${data.length} products`, level: 'info' })
       })
-      .catch(console.error)
+      .catch(err => {
+        Sentry.captureException(err, { tags: { area: 'product-catalog' } })
+        console.error(err)
+      })
   }, [])
 
   const addToCart = (productId) =>

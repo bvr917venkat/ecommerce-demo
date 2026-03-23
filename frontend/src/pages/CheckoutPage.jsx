@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import { useCart } from '../context/CartContext'
 
 const EMPTY_ADDRESS = {
@@ -30,13 +31,17 @@ export default function CheckoutPage() {
       items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
       promoCode: promoCode || null
     }
+    Sentry.logger.info(`Checkout page loaded: ${cartItems.length} items, promoCode=${promoCode || 'none'}`)
     fetch('http://localhost:8080/api/cart/calculate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
       .then(r => r.json())
-      .then(setSummary)
+      .then(data => {
+        setSummary(data)
+        Sentry.logger.info(`Order summary calculated: subtotal=$${data.subtotal}, total=$${data.total}`)
+      })
       .catch(console.error)
   }, [cartItems.length])
 
@@ -79,9 +84,14 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     const e = validate()
-    if (Object.keys(e).length > 0) { setErrors(e); return }
+    if (Object.keys(e).length > 0) {
+      Sentry.logger.warn(`Order validation failed: ${Object.keys(e).join(', ')}`)
+      setErrors(e)
+      return
+    }
     setErrors({})
     setPlacing(true)
+    Sentry.logger.info(`Placing order: ${cartItems.length} items, promoCode=${promoCode || 'none'}`)
 
     const payload = {
       items: cartItems.map(({ product, quantity }) => ({ productId: product.id, quantity })),
@@ -93,15 +103,19 @@ export default function CheckoutPage() {
     }
 
     try {
+      Sentry.addBreadcrumb({ category: 'checkout', message: 'Placing order', level: 'info' })
       const res = await fetch('http://localhost:8080/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       })
       const order = await res.json()
+      Sentry.logger.info(`Order placed successfully: orderId=${order.orderId}, total=$${order.total}`)
+      Sentry.captureMessage(`Order placed: ${order.orderId}`, 'info')
       clearCart()
       navigate(`/order-confirmation/${order.orderId}`)
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err, { tags: { area: 'checkout' } })
       setErrors({ submit: 'Failed to place order. Please try again.' })
     } finally {
       setPlacing(false)

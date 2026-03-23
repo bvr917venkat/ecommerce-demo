@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import { useCart } from '../context/CartContext'
 
 export default function CartPage() {
@@ -23,6 +24,8 @@ export default function CartPage() {
       promoCode: promoCode.trim() || null
     }
     try {
+      Sentry.logger.info(`Calculating cart total: ${payload.items.length} items, promoCode=${promoCode || 'none'}`)
+      Sentry.addBreadcrumb({ category: 'cart', message: `Applying promo code: ${promoCode || 'none'}`, level: 'info' })
       const res = await fetch('http://localhost:8080/api/cart/calculate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,8 +33,15 @@ export default function CartPage() {
       })
       const data = await res.json()
       setSummary(data)
-      if (promoCode && !data.promoCode) setPromoError('Invalid promo code')
-    } catch {
+      if (promoCode && !data.promoCode) {
+        Sentry.captureMessage(`Invalid promo code attempted: ${promoCode}`, 'warning')
+        setPromoError('Invalid promo code')
+      } else if (data.promoCode) {
+        Sentry.logger.info(`Promo code applied: ${data.promoCode}, discount=$${data.discountAmount}`)
+        Sentry.addBreadcrumb({ category: 'cart', message: `Promo code applied: ${data.promoCode}`, level: 'info' })
+      }
+    } catch (err) {
+      Sentry.captureException(err, { tags: { area: 'cart-calculate' } })
       setPromoError('Could not reach server.')
     } finally {
       setCalculating(false)
@@ -39,7 +49,7 @@ export default function CartPage() {
   }
 
   const handleCheckout = () => {
-    // Pass summary (or recompute on checkout page)
+    Sentry.logger.info(`Proceeding to checkout: ${cartItems.length} items, total=$${summary?.total ?? localSubtotal}`)
     navigate('/checkout', { state: { promoCode: summary?.promoCode || promoCode } })
   }
 
