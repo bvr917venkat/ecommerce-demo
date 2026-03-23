@@ -7,6 +7,7 @@ import ProductDetailPage from './pages/ProductDetailPage'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
 import OrderConfirmationPage from './pages/OrderConfirmationPage'
+import SupportChat from './components/SupportChat'
 import './App.css'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
             <Route path="/order-confirmation/:orderId" element={<OrderConfirmationPage />} />
           </Routes>
         </div>
+        <SupportChat />
       </BrowserRouter>
     </CartProvider>
   )

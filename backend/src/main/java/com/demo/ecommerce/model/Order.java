@@ -40,6 +40,7 @@ public class Order {
     public double getTax() { return tax; }
     public double getTotal() { return total; }
     public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public String getCreatedAt() { return createdAt; }
     public String getCardLast4() { return cardLast4; }
 }
